@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ডাক্তার সিরিয়াল</title>
+<style>
+body{font-family:system-ui,'Noto Sans Bengali',sans-serif;background:#f3f6fa;margin:0;color:#222}
+header{background:#0d6efd;color:#fff;padding:14px 20px;font-size:20px;font-weight:600}
+nav{display:flex;gap:8px;padding:12px 20px;background:#fff;border-bottom:1px solid #ddd;flex-wrap:wrap}
+nav button{padding:8px 14px;border:1px solid #0d6efd;background:#fff;color:#0d6efd;border-radius:6px;cursor:pointer}
+nav button.active{background:#0d6efd;color:#fff}
+main{padding:20px;max-width:960px;margin:auto}
+.card{background:#fff;border-radius:10px;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+h3{margin:0 0 12px}
+input,select{padding:8px;border:1px solid #ccc;border-radius:6px;width:100%;box-sizing:border-box;margin-bottom:10px;font-size:15px}
+.chk input{width:auto;margin:0}
+.chk{display:inline-block;margin-right:10px}
+button.act{padding:6px 10px;border:0;border-radius:5px;cursor:pointer;color:#fff;margin:2px}
+.primary{background:#0d6efd;color:#fff;border:0;padding:10px 16px;border-radius:6px;cursor:pointer;font-size:15px}
+.msg{padding:10px;border-radius:6px;margin-top:10px}
+.ok{background:#d1e7dd;color:#0f5132}
+.err{background:#f8d7da;color:#842029}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.limitRow{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.limitRow input{width:90px;margin:0}
+.big{background:#fff3cd;border-radius:8px;padding:12px;margin-bottom:12px;font-size:18px}
+.tag{padding:2px 8px;border-radius:10px;font-size:12px;display:inline-block}
+.paid{background:#d1e7dd;color:#0f5132}
+.due{background:#f8d7da;color:#842029}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>ডাক্তার সিরিয়াল ব্যবস্থাপনা</header>
+<nav>
+  <button id="tabP" class="active" onclick="show('p')">সিরিয়াল নিন</button>
+  <button id="tabD" onclick="show('d')">ডাক্তার</button>
+  <button id="tabA" onclick="show('a')">অ্যাডমিন</button>
+</nav>
+<main>
+
+<section id="pSec">
+  <div class="card">
+    <h3>রোগীর তথ্য</h3>
+    <input id="pName" placeholder="রোগীর নাম">
+    <div class="grid">
+      <input id="pAge" type="number" placeholder="বয়স" min="0">
+      <input id="pPhone" placeholder="মোবাইল নম্বর (01xxxxxxxxx)">
+    </div>
+    <select id="pDoc" onchange="showFee()"></select>
+    <div id="feeInfo" style="margin-bottom:10px;color:#555"></div>
+    <input id="pDate" type="date">
+    <button class="primary" onclick="book()">সিরিয়াল নিন</button>
+    <div id="pMsg"></div>
+  </div>
+  <div class="card">
+    <h3>আমার সিরিয়াল দেখুন / বাতিল করুন</h3>
+    <input id="cPhone" placeholder="মোবাইল নম্বর (01xxxxxxxxx)">
+    <button class="primary" onclick="myBookings()">খুঁজুন</button>
+    <div id="cList"></div>
+  </div>
+</section>
+
+<section id="dSec" style="display:none">
+  <div class="card" id="dLogin">
+    <h3>ডাক্তার লগইন</h3>
+    <select id="dLoginDoc"></select>
+    <input id="dPin" type="password" placeholder="পিন">
+    <button class="primary" onclick="doctorLogin()">প্রবেশ করুন</button>
+    <div id="dLoginMsg"></div>
+  </div>
+  <div id="dDash" style="display:none">
+    <div class="card">
+      <h3 id="dTitle"></h3>
+      <input id="dDate" type="date" onchange="loadDoctorList()">
+      <div id="dStat"></div>
+      <button class="primary" onclick="nextPatient()">পরবর্তী রোগী ডাকুন</button>
+      <button class="act" style="background:#6c757d;padding:10px" onclick="logoutDoc()">লগআউট</button>
+    </div>
+    <div id="dCalled"></div>
+    <div class="card">
+      <h3>আমার রোগীরা <small style="font-weight:normal;color:#777">(প্রতি ১০ সেকেন্ডে আপডেট হয়)</small></h3>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>নং</th><th>সময়</th><th>নাম / বয়স / ফোন</th><th>ভিজিট</th><th>অবস্থা</th><th>রিপোর্ট</th><th></th></tr></thead>
+          <tbody id="dList"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="aSec" style="display:none">
+  <div class="card">
+    <h3>তারিখ ও ডাক্তার</h3>
+    <div class="grid">
+      <input id="aDate" type="date" onchange="loadAdmin()">
+      <select id="aDoc" onchange="loadAdmin()"></select>
+    </div>
+    <div id="aStat"></div>
+  </div>
+  <div class="card">
+    <h3>সিরিয়ালের তালিকা</h3>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>নং</th><th>সময়</th><th>নাম</th><th>ফোন</th><th>ভিজিট</th><th>অবস্থা</th><th>রিপোর্ট</th><th></th></tr></thead>
+        <tbody id="aList"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <h3>নতুন ডাক্তার যোগ করুন</h3>
+    <input id="nName" placeholder="ডাক্তারের নাম ও বিশেষত্ব">
+    <input id="nSched" placeholder="রোগী দেখার সময়সূচি (লেখায়)">
+    <div class="grid">
+      <input id="nFee" type="number" placeholder="ভিজিট ফি (৳)">
+      <input id="nLimit" type="number" placeholder="দৈনিক সর্বোচ্চ রোগী">
+      <input id="nStart" type="time" value="16:00">
+      <input id="nInt" type="number" placeholder="প্রতি রোগীর সময় ব্যবধান (মিনিট)" value="10">
+    </div>
+    <input id="nPin" placeholder="ডাক্তারের লগইন পিন">
+    <div style="margin-bottom:10px">রোগী দেখার দিন:</div>
+    <div id="nDays" style="margin-bottom:10px"></div>
+    <button class="primary" onclick="addDoctor()">ডাক্তার যোগ করুন</button>
+    <div id="nMsg"></div>
+  </div>
+  <div class="card">
+    <h3>ডাক্তারের দৈনিক সীমা</h3>
+    <div id="limits"></div>
+  </div>
+</section>
+
+</main>
+<script>
+const DAYS = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি'];
+const bnDigits = '০১২৩৪৫৬৭৮৯';
+const bn = s => String(s).replace(/\d/g, d => bnDigits[d]);
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const msg = (el, text, ok) => el.innerHTML = '<div class="msg ' + (ok ? 'ok' : 'err') + '">' + text + '</div>';
+const payTag = b => b.paid
+  ? '<span class="tag paid">পরিশোধিত ৳' + bn(b.fee) + '</span>'
+  : '<span class="tag due">বাকি ৳' + bn(b.fee) + '</span>';
+
+let doctors = [];
+let dDocId = null, dPinVal = null, aPin = null, timer = null;
+
+async function api(route, body) {
+  const r = await fetch('/api/' + route, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {})
+  });
+  return r.json();
+}
+
+async function loadDoctors() {
+  doctors = await (await fetch('/api/doctors')).json();
+  const opts = doctors.map(d => '<option value="' + d.id + '">' + esc(d.name) + '</option>').join('');
+  ['pDoc', 'dLoginDoc', 'aDoc'].forEach(id => {
+    const s = $(id), v = s.value;
+    s.innerHTML = opts;
+    if (v) s.value = v;
+  });
+  showFee();
+  renderLimits();
+}
+
+function show(t) {
+  if (t === 'a' && !aPin) {
+    const p = prompt('অ্যাডমিন পিন দিন');
+    if (p === null) return;
+    aPin = p;
+  }
+  $('pSec').style.display = t === 'p' ? 'block' : 'none';
+  $('dSec').style.display = t === 'd' ? 'block' : 'none';
+  $('aSec').style.display = t === 'a' ? 'block' : 'none';
+  ['tabP', 'tabD', 'tabA'].forEach((id, i) => $(id).classList.toggle('active', ['p', 'd', 'a'][i] === t));
+  if (t === 'a') loadAdmin();
+}
+
+/* ---------- রোগী ---------- */
+function showFee() {
+  const d = doctors.find(x => x.id == $('pDoc').value);
+  if (d) $('feeInfo').innerHTML = 'সময়সূচি: ' + esc(d.schedule) + '<br>ভিজিট ফি: ৳' + bn(d.fee) + ' (কাউন্টারে পরিশোধ করুন)';
+}
+
+async function book() {
+  const body = { name: $('pName').value.trim(), age: $('pAge').value, phone: $('pPhone').value.trim(),
+    doctorId: +$('pDoc').value, date: $('pDate').value };
+  const r = await api('book', body);
+  if (r.error) return msg($('pMsg'), r.error, false);
+  msg($('pMsg'), 'সিরিয়াল সফল! নম্বর: ' + r.serial + ', সময়: ' + r.time + ', ডাক্তার: ' + esc(r.doctor) +
+    '। ভিজিট ফি ৳' + bn(r.fee) + ' কাউন্টারে দিন।', true);
+  $('pName').value = ''; $('pAge').value = ''; $('pPhone').value = '';
+}
+
+async function myBookings() {
+  const r = await api('mybookings', { phone: $('cPhone').value.trim() });
+  if (!r.list || !r.list.length) return $('cList').innerHTML = '<div class="msg err">এই নম্বরে কোনো সিরিয়াল পাওয়া যায়নি</div>';
+  $('cList').innerHTML = r.list.map(b => {
+    const cancel = (b.status === 'অপেক্ষমাণ' && !b.paid)
+      ? '<br><button class="act" style="background:#dc3545" onclick="cancelOwn(' + b.id + ')">বাতিল করুন</button>' : '';
+    return '<div class="card" style="margin:10px 0"><b>' + esc(b.doctorName) + '</b><br>তারিখ: ' + b.date +
+      '<br>সিরিয়াল: ' + bn(b.serial) + ', সময়: ' + b.time + '<br>অবস্থা: ' + b.status + ' ' + payTag(b) + cancel + '</div>';
+  }).join('');
+}
+
+async function cancelOwn(id) {
+  const r = await api('cancel', { id, phone: $('cPhone').value.trim() });
+  if (r.error) alert(r.error);
+  myBookings();
+}
+
+/* ---------- ডাক্তার ---------- */
+async function doctorLogin() {
+  dDocId = +$('dLoginDoc').value;
+  dPinVal = $('dPin').value;
+  const date = $('dDate').value || ymd(new Date());
+  $('dDate').value = date;
+  const r = await api('doctor/list', { doctorId: dDocId, pin: dPinVal, date });
+  if (r.error) return msg($('dLoginMsg'), r.error, false);
+  $('dLogin').style.display = 'none';
+  $('dDash').style.display = 'block';
+  $('dPin').value = '';
+  renderDoctor(r.list);
+  clearInterval(timer);
+  timer = setInterval(loadDoctorList, 10000);
+}
+
+function logoutDoc() {
+  clearInterval(timer);
+  dDocId = null; dPinVal = null;
+  $('dLogin').style.display = 'block';
+  $('dDash').style.display = 'none';
+  $('dLoginMsg').innerHTML = '';
+}
+
+async function loadDoctorList() {
+  if (!dDocId) return;
+  const r = await api('doctor/list', { doctorId: dDocId, pin: dPinVal, date: $('dDate').value });
+  if (!r.error) renderDoctor(r.list);
+}
+
+function renderDoctor(list) {
+  const doc = doctors.find(d => d.id === dDocId);
+  $('dTitle').textContent = doc.name;
+  const called = list.find(b => b.status === 'ডাকা হয়েছে');
+  $('dStat').innerHTML = 'মোট রোগী: ' + bn(list.length) + ' · দেখা হয়েছে: ' +
+    bn(list.filter(b => b.status === 'দেখা সম্পন্ন').length) + ' · অপেক্ষমাণ: ' +
+    bn(list.filter(b => b.status === 'অপেক্ষমাণ').length);
+  $('dCalled').innerHTML = called
+    ? '<div class="big">এখন ডাকা হচ্ছে: <b>' + bn(called.serial) + ' নং — ' + esc(called.name) + '</b> ' + payTag(called) + '</div>'
+    : '';
+  $('dList').innerHTML = list.map(b => {
+    const btns = [];
+    if (!b.paid) btns.push(['ভিজিট পেয়েছি', 'paid', '#198754']);
+    if (b.status === 'অপেক্ষমাণ') btns.push(['ডাকুন', 'call', '#0d6efd']);
+    if (b.status === 'ডাকা হয়েছে') {
+      btns.push(['দেখা সম্পন্ন', 'done', '#198754']);
+      btns.push(['আসেনি', 'absent', '#dc3545']);
+    }
+    const buttons = btns.map(([l, a, c]) =>
+      '<button class="act" style="background:' + c + '" onclick="docAct(' + b.id + ',\'' + a + '\')">' + l + '</button>').join('');
+    const rep = '<button class="act" style="background:' + (b.report ? '#198754' : '#6c757d') +
+      '" onclick="docAct(' + b.id + ',\'report\')">' + (b.report ? 'রিপোর্ট আছে ✓' : 'রিপোর্ট নেই') + '</button>';
+    return '<tr><td>' + bn(b.serial) + '</td><td>' + b.time + '</td><td>' + esc(b.name) + ' / ' +
+      bn(b.age) + ' / ' + bn(b.phone) + '</td><td>' + payTag(b) + '</td><td>' + b.status + '</td><td>' +
+      rep + '</td><td>' + buttons + '</td></tr>';
+  }).join('') || '<tr><td colspan="7">এই তারিখে কোনো রোগী নেই</td></tr>';
+}
+
+async function docAct(id, action) {
+  const r = await api('doctor/action', { doctorId: dDocId, pin: dPinVal, id, action });
+  if (!r.error) renderDoctor(r.list);
+}
+
+async function nextPatient() {
+  const r = await api('doctor/next', { doctorId: dDocId, pin: dPinVal, date: $('dDate').value });
+  if (r.error) return alert(r.error);
+  if (!r.called) alert('আর কোনো অপেক্ষমাণ রোগী নেই');
+  renderDoctor(r.list);
+}
+
+/* ---------- অ্যাডমিন ---------- */
+async function loadAdmin() {
+  if (!aPin) return;
+  const r = await api('admin/list', { pin: aPin, doctorId: +$('aDoc').value, date: $('aDate').value });
+  if (r.error) { aPin = null; return alert(r.error); }
+  const doc = doctors.find(d => d.id == $('aDoc').value);
+  $('aStat').innerHTML = 'মোট সিরিয়াল: ' + bn(r.count) + ' / ' + bn(r.limit) + ' · বাকি: ' + bn(Math.max(0, r.limit - r.count));
+  $('aList').innerHTML = r.list.map(b =>
+    '<tr><td>' + bn(b.serial) + '</td><td>' + b.time + '</td><td>' + esc(b.name) + '</td><td>' + bn(b.phone) +
+    '</td><td>' + payTag(b) + '</td><td>' + b.status + '</td><td>' + (b.report ? 'আছে' : 'নেই') + '</td><td>' +
+    '<button class="act" style="background:#dc3545" onclick="adminCancel(' + b.id + ')">বাতিল</button></td></tr>'
+  ).join('') || '<tr><td colspan="8">এই তারিখে কোনো সিরিয়াল নেই</td></tr>';
+}
+
+async function adminCancel(id) {
+  await api('admin/action', { pin: aPin, id, action: 'cancel' });
+  loadAdmin();
+}
+
+function renderLimits() {
+  $('limits').innerHTML = doctors.map(d =>
+    '<div class="limitRow"><span style="flex:1">' + esc(d.name) + '</span>' +
+    '<input type="number" min="1" value="' + d.limit + '" onchange="setLimit(' + d.id + ', this.value)"></div>').join('');
+}
+
+async function setLimit(id, v) {
+  await api('admin/limit', { pin: aPin, doctorId: id, limit: v });
+  await loadDoctors();
+  loadAdmin();
+}
+
+async function addDoctor() {
+  const days = [...document.querySelectorAll('.dayChk:checked')].map(c => +c.value);
+  const r = await api('admin/doctor', { pin: aPin, doctor: {
+    name: $('nName').value.trim(), schedule: $('nSched').value.trim(), fee: $('nFee').value,
+    limit: $('nLimit').value, start: $('nStart').value, interval: $('nInt').value, pin: $('nPin').value.trim(), days
+  }});
+  if (r.error) return msg($('nMsg'), r.error, false);
+  msg($('nMsg'), 'ডাক্তার যোগ করা হয়েছে', true);
+  ['nName', 'nSched', 'nFee', 'nLimit', 'nPin'].forEach(id => $(id).value = '');
+  document.querySelectorAll('.dayChk').forEach(c => c.checked = false);
+  await loadDoctors();
+}
+
+/* ---------- শুরু ---------- */
+(async function init() {
+  const today = ymd(new Date());
+  $('pDate').value = today; $('pDate').min = today;
+  $('aDate').value = today; $('dDate').value = today;
+  $('nDays').innerHTML = DAYS.map((n, i) =>
+    '<label class="chk"><input class="dayChk" type="checkbox" value="' + i + '"> ' + n + '</label>').join('');
+  await loadDoctors();
+})();
+</script>
+</body>
+</html>
