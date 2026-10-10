@@ -153,6 +153,22 @@ const server = http.createServer(async (req, res) => {
       save();
       return send(res, 200, { ok: true });
     }
+    if (route === 'admin/doctor-update') {
+      const d = docOf(+b.doctorId);
+      if (!d) return send(res, 404, { error: 'ডাক্তার পাওয়া যায়নি' });
+      const x = b.doctor || {};
+      if (!x.name || !String(x.name).trim()) return send(res, 400, { error: 'নাম দিন' });
+      if (!Array.isArray(x.days) || !x.days.length) return send(res, 400, { error: 'কমপক্ষে একটি দিন বেছে নিন' });
+      d.name = String(x.name).trim();
+      d.schedule = String(x.schedule || '').trim() || 'সময়সূচি যোগ করা হয়নি';
+      d.fee = Math.max(0, +x.fee || 0);
+      d.limit = +x.limit > 0 ? +x.limit : d.limit;
+      d.start = x.start || d.start;
+      d.interval = +x.interval > 0 ? +x.interval : d.interval;
+      d.days = x.days.map(Number);
+      save();
+      return send(res, 200, { ok: true });
+    }
     if (route === 'admin/doctor') {
       const x = b.doctor || {};
       if (!x.name || !x.pin) return send(res, 400, { error: 'নাম ও পিন দিন' });

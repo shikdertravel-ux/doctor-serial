@@ -128,7 +128,7 @@ th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;vertical-align:to
     <div id="nMsg"></div>
   </div>
   <div class="card">
-    <h3>ডাক্তারের দৈনিক সীমা</h3>
+    <h3>ডাক্তারদের তথ্য সম্পাদনা</h3>
     <div id="limits"></div>
   </div>
 </section>
@@ -304,9 +304,37 @@ async function adminCancel(id) {
 }
 
 function renderLimits() {
-  $('limits').innerHTML = doctors.map(d =>
-    '<div class="limitRow"><span style="flex:1">' + esc(d.name) + '</span>' +
-    '<input type="number" min="1" value="' + d.limit + '" onchange="setLimit(' + d.id + ', this.value)"></div>').join('');
+  $('limits').innerHTML = doctors.map(d => {
+    const days = DAYS.map((n, i) => '<label class="chk"><input class="ed' + d.id + '" type="checkbox" value="' + i + '"' +
+      (d.days.includes(i) ? ' checked' : '') + '> ' + n + '</label>').join('');
+    return '<div class="card" style="background:#f9fbff">' +
+      '<h3>' + esc(d.name) + '</h3>' +
+      '<input id="n' + d.id + '" value="' + esc(d.name) + '" placeholder="নাম ও বিশেষত্ব">' +
+      '<input id="s' + d.id + '" value="' + esc(d.schedule) + '" placeholder="সময়সূচি (লেখায়)">' +
+      '<div class="grid">' +
+        '<input id="f' + d.id + '" type="number" value="' + d.fee + '" placeholder="ভিজিট ফি (৳)">' +
+        '<input id="l' + d.id + '" type="number" value="' + d.limit + '" placeholder="দৈনিক সর্বোচ্চ রোগী">' +
+        '<input id="t' + d.id + '" type="time" value="' + d.start + '">' +
+        '<input id="i' + d.id + '" type="number" value="' + d.interval + '" placeholder="প্রতি রোগীর ব্যবধান (মিনিট)">' +
+      '</div>' +
+      '<div style="margin-bottom:10px">রোগী দেখার দিন:</div>' +
+      '<div style="margin-bottom:10px">' + days + '</div>' +
+      '<button class="primary" onclick="saveDoctor(' + d.id + ')">সংরক্ষণ করুন</button>' +
+      '<div id="em' + d.id + '"></div>' +
+    '</div>';
+  }).join('');
+}
+
+async function saveDoctor(id) {
+  const days = [...document.querySelectorAll('.ed' + id + ':checked')].map(c => +c.value);
+  const r = await api('admin/doctor-update', { pin: aPin, doctorId: id, doctor: {
+    name: $('n' + id).value.trim(), schedule: $('s' + id).value.trim(), fee: $('f' + id).value,
+    limit: $('l' + id).value, start: $('t' + id).value, interval: $('i' + id).value, days
+  }});
+  if (r.error) return msg($('em' + id), r.error, false);
+  await loadDoctors();
+  msg($('em' + id), 'সংরক্ষণ হয়েছে', true);
+  loadAdmin();
 }
 
 async function setLimit(id, v) {
