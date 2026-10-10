@@ -84,6 +84,11 @@ th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;vertical-align:to
     <div id="dCalled"></div>
     <div class="card">
       <h3>আমার রোগীরা <small style="font-weight:normal;color:#777">(প্রতি ১০ সেকেন্ডে আপডেট হয়)</small></h3>
+      <div style="margin-bottom:12px">
+        <button class="act" id="dv_active" style="background:#0d6efd" onclick="setDView('active')">চলমান রোগী</button>
+        <button class="act" id="dv_done" style="background:#6c757d" onclick="setDView('done')">দেখা সম্পন্ন</button>
+        <button class="act" id="dv_report" style="background:#6c757d" onclick="setDView('report')">রিপোর্ট আছে</button>
+      </div>
       <div style="overflow-x:auto">
         <table>
           <thead><tr><th>নং</th><th>সময়</th><th>নাম / বয়স / ফোন</th><th>ভিজিট</th><th>অবস্থা</th><th>রিপোর্ট</th><th></th></tr></thead>
@@ -280,7 +285,28 @@ async function loadDoctorList() {
   if (!r.error) renderDoctor(r.list);
 }
 
+let dAll = [], dView = 'active';
+
 function renderDoctor(list) {
+  if (list) dAll = list;
+  renderDoctorView();
+}
+
+function setDView(v) {
+  dView = v;
+  renderDoctorView();
+}
+
+function renderDoctorView() {
+  const filters = {
+    active: b => b.status === 'অপেক্ষমাণ' || b.status === 'ডাকা হয়েছে' || b.status === 'আসেনি',
+    done: b => b.status === 'দেখা সম্পন্ন',
+    report: b => b.report
+  };
+  ['active', 'done', 'report'].forEach(v => {
+    $('dv_' + v).style.background = v === dView ? '#0d6efd' : '#6c757d';
+  });
+  const list = dAll.filter(filters[dView]);
   const doc = doctors.find(d => d.id === dDocId);
   $('dTitle').textContent = doc.name;
   const called = list.find(b => b.status === 'ডাকা হয়েছে');
