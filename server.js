@@ -4,6 +4,7 @@ const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_PIN = process.env.ADMIN_PIN || '1234';
+const RECEPTION_PIN = process.env.RECEPTION_PIN || '2468';
 const DATA = path.join(process.env.DATA_DIR || __dirname, 'data.json');
 const bnDigits = '০১২৩৪৫৬৭৮৯';
 const toEn = s => String(s).replace(/[০-৯]/g, d => bnDigits.indexOf(d));
@@ -107,6 +108,26 @@ const server = http.createServer(async (req, res) => {
     applyAction(bk, 'cancel');
     save();
     return send(res, 200, { ok: true });
+  }
+
+  if (route.startsWith('reception/')) {
+    if (String(b.pin) !== RECEPTION_PIN) return send(res, 401, { error: 'রিসেপশন পিন ভুল' });
+    if (route === 'reception/list') {
+      const list = db.bookings
+        .filter(x => x.date === b.date && x.status !== 'বাতিল')
+        .sort((p, q) => p.doctorId - q.doctorId || p.serial - q.serial)
+        .map(x => { const d = docOf(x.doctorId); return { ...x, doctorName: d.name, time: timeOf(d, x.serial) }; });
+      return send(res, 200, { list });
+    }
+    if (route === 'reception/action') {
+      const bk = db.bookings.find(x => x.id === +b.id);
+      if (!bk) return send(res, 404, { error: 'সিরিয়াল পাওয়া যায়নি' });
+      if (!['paid', 'arrived', 'cancel'].includes(b.action)) return send(res, 400, { error: 'এই কাজ অনুমোদিত নয়' });
+      if (b.action === 'arrived') bk.arrived = !bk.arrived;
+      else applyAction(bk, b.action);
+      save();
+      return send(res, 200, { ok: true });
+    }
   }
 
   if (route === 'doctor/list') {

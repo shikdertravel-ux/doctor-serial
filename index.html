@@ -38,6 +38,7 @@ th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;vertical-align:to
 <nav>
   <button id="tabP" class="active" onclick="show('p')">সিরিয়াল নিন</button>
   <button id="tabD" onclick="show('d')">ডাক্তার</button>
+  <button id="tabR" onclick="show('r')">রিসেপশন</button>
   <button id="tabA" onclick="show('a')">অ্যাডমিন</button>
 </nav>
 <main>
@@ -90,6 +91,40 @@ th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;vertical-align:to
         </table>
       </div>
     </div>
+  </div>
+</section>
+
+<section id="rSec" style="display:none">
+  <div class="card" id="rLogin">
+    <h3>রিসেপশন লগইন</h3>
+    <input id="rPin" type="password" placeholder="রিসেপশন পিন">
+    <button class="primary" onclick="receptionLogin()">প্রবেশ করুন</button>
+    <div id="rLoginMsg"></div>
+  </div>
+  <div id="rDash" style="display:none">
+    <div class="card">
+      <h3>আজকের সিরিয়াল (সব ডাক্তার)</h3>
+      <input id="rDate" type="date" onchange="loadReception()">
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>ডাক্তার</th><th>নং</th><th>সময়</th><th>নাম</th><th>ফোন</th><th>ভিজিট</th><th>অবস্থা</th><th></th></tr></thead>
+          <tbody id="rList"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h3>নতুন সিরিয়াল (কাউন্টারে)</h3>
+      <input id="wName" placeholder="রোগীর নাম">
+      <div class="grid">
+        <input id="wAge" type="number" placeholder="বয়স" min="0">
+        <input id="wPhone" placeholder="মোবাইল নম্বর (01xxxxxxxxx)">
+      </div>
+      <select id="wDoc"></select>
+      <input id="wDate" type="date">
+      <button class="primary" onclick="walkIn()">সিরিয়াল দিন</button>
+      <div id="wMsg"></div>
+    </div>
+    <button class="act" style="background:#6c757d;padding:10px" onclick="logoutRec()">লগআউট</button>
   </div>
 </section>
 
@@ -159,7 +194,7 @@ async function api(route, body) {
 async function loadDoctors() {
   doctors = await (await fetch('/api/doctors')).json();
   const opts = doctors.map(d => '<option value="' + d.id + '">' + esc(d.name) + '</option>').join('');
-  ['pDoc', 'dLoginDoc', 'aDoc'].forEach(id => {
+  ['pDoc', 'dLoginDoc', 'aDoc', 'wDoc'].forEach(id => {
     const s = $(id), v = s.value;
     s.innerHTML = opts;
     if (v) s.value = v;
@@ -176,8 +211,9 @@ function show(t) {
   }
   $('pSec').style.display = t === 'p' ? 'block' : 'none';
   $('dSec').style.display = t === 'd' ? 'block' : 'none';
+  $('rSec').style.display = t === 'r' ? 'block' : 'none';
   $('aSec').style.display = t === 'a' ? 'block' : 'none';
-  ['tabP', 'tabD', 'tabA'].forEach((id, i) => $(id).classList.toggle('active', ['p', 'd', 'a'][i] === t));
+  ['tabP', 'tabD', 'tabR', 'tabA'].forEach((id, i) => $(id).classList.toggle('active', ['p', 'd', 'r', 'a'][i] === t));
   if (t === 'a') loadAdmin();
 }
 
@@ -266,7 +302,7 @@ function renderDoctor(list) {
       '<button class="act" style="background:' + c + '" onclick="docAct(' + b.id + ',\'' + a + '\')">' + l + '</button>').join('');
     const rep = '<button class="act" style="background:' + (b.report ? '#198754' : '#6c757d') +
       '" onclick="docAct(' + b.id + ',\'report\')">' + (b.report ? 'রিপোর্ট আছে ✓' : 'রিপোর্ট নেই') + '</button>';
-    return '<tr><td>' + bn(b.serial) + '</td><td>' + b.time + '</td><td>' + esc(b.name) + ' / ' +
+    return '<tr><td>' + bn(b.serial) + '</td><td>' + b.time + '</td><td>' + esc(b.name) + (b.arrived ? ' ✓ এসেছেন' : '') + ' / ' +
       bn(b.age) + ' / ' + bn(b.phone) + '</td><td>' + payTag(b) + '</td><td>' + b.status + '</td><td>' +
       rep + '</td><td>' + buttons + '</td></tr>';
   }).join('') || '<tr><td colspan="7">এই তারিখে কোনো রোগী নেই</td></tr>';
@@ -356,11 +392,67 @@ async function addDoctor() {
   await loadDoctors();
 }
 
+/* ---------- রিসেপশন ---------- */
+let rPin = null;
+
+async function receptionLogin() {
+  const pin = $('rPin').value;
+  const r = await api('reception/list', { pin, date: $('rDate').value });
+  if (r.error) return msg($('rLoginMsg'), r.error, false);
+  rPin = pin;
+  $('rPin').value = '';
+  $('rLogin').style.display = 'none';
+  $('rDash').style.display = 'block';
+  renderReception(r.list);
+}
+
+function logoutRec() {
+  rPin = null;
+  $('rLogin').style.display = 'block';
+  $('rDash').style.display = 'none';
+  $('rLoginMsg').innerHTML = '';
+}
+
+async function loadReception() {
+  if (!rPin) return;
+  const r = await api('reception/list', { pin: rPin, date: $('rDate').value });
+  if (!r.error) renderReception(r.list);
+}
+
+function renderReception(list) {
+  $('rList').innerHTML = list.map(b => {
+    const btns =
+      (!b.paid ? '<button class="act" style="background:#198754" onclick="recAct(' + b.id + ',\'paid\')">ভিজিট পেয়েছি</button>' : '') +
+      '<button class="act" style="background:#0d6efd" onclick="recAct(' + b.id + ',\'arrived\')">' + (b.arrived ? 'আসেননি' : 'এসেছেন') + '</button>' +
+      (b.status === 'অপেক্ষমাণ' ? '<button class="act" style="background:#dc3545" onclick="recAct(' + b.id + ',\'cancel\')">বাতিল</button>' : '');
+    return '<tr><td>' + esc(b.doctorName) + '</td><td>' + bn(b.serial) + '</td><td>' + b.time + '</td><td>' +
+      esc(b.name) + '</td><td>' + bn(b.phone) + '</td><td>' + payTag(b) + '</td><td>' + b.status +
+      (b.arrived ? ' · এসেছেন ✓' : '') + '</td><td>' + btns + '</td></tr>';
+  }).join('') || '<tr><td colspan="8">এই তারিখে কোনো সিরিয়াল নেই</td></tr>';
+}
+
+async function recAct(id, action) {
+  const r = await api('reception/action', { pin: rPin, id, action });
+  if (r.error) return alert(r.error);
+  loadReception();
+}
+
+async function walkIn() {
+  const body = { name: $('wName').value.trim(), age: $('wAge').value, phone: $('wPhone').value.trim(),
+    doctorId: +$('wDoc').value, date: $('wDate').value };
+  const r = await api('book', body);
+  if (r.error) return msg($('wMsg'), r.error, false);
+  msg($('wMsg'), 'সিরিয়াল: ' + r.serial + ', সময়: ' + r.time + ', ডাক্তার: ' + esc(r.doctor) + ', ফি ৳' + bn(r.fee), true);
+  ['wName', 'wAge', 'wPhone'].forEach(i => $(i).value = '');
+  loadReception();
+}
+
 /* ---------- শুরু ---------- */
 (async function init() {
   const today = ymd(new Date());
   $('pDate').value = today; $('pDate').min = today;
   $('aDate').value = today; $('dDate').value = today;
+  $('rDate').value = today; $('wDate').value = today; $('wDate').min = today;
   $('nDays').innerHTML = DAYS.map((n, i) =>
     '<label class="chk"><input class="dayChk" type="checkbox" value="' + i + '"> ' + n + '</label>').join('');
   await loadDoctors();
